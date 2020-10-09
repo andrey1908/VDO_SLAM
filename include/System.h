@@ -51,6 +51,7 @@ public:
                       cv::Mat &imTraj, const int &nImage);
 
     void SaveResultsIJRR2020(const string &filename);
+    void SaveTrajectoryKITTI(const string &filename);
 
 private:
 

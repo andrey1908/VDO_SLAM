@@ -225,6 +225,32 @@ void System::SaveResultsIJRR2020(const string &filename)
 
 }
 
+void System::SaveTrajectoryKITTI(const string &filename)
+{
+    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
+    if(mSensor==MONOCULAR)
+    {
+        cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
+        return;
+    }
+
+    std::vector<cv::Mat> CamPose_ref = mpMap->vmCameraPose_RF;
+
+    ofstream f;
+    f.open(filename.c_str(), ios::trunc);
+    f << fixed;
+
+    for (auto pose : CamPose_ref)
+    {
+        f << setprecision(9) << pose.at<float>(0,0) << " " << pose.at<float>(0,1)  << " " << pose.at<float>(0,2) << " "  << pose.at<float>(0,3) << " " <<
+             pose.at<float>(1,0) << " " << pose.at<float>(1,1)  << " " << pose.at<float>(1,2) << " "  << pose.at<float>(1,3) << " " <<
+             pose.at<float>(2,0) << " " << pose.at<float>(2,1)  << " " << pose.at<float>(2,2) << " "  << pose.at<float>(2,3) << endl;
+    }
+
+    f.close();
+    cout << endl << "trajectory saved!" << endl;
+}
+
 
 
 } //namespace VDO_SLAM
