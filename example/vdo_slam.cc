@@ -17,6 +17,7 @@
 #include<opencv2/optflow.hpp>
 
 #include<System.h>
+#include<sys/stat.h>
 
 using namespace std;
 
@@ -25,6 +26,8 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
               vector<double> &vTimestamps, vector<cv::Mat> &vPoseGT, vector<vector<float> > &vObjPoseGT);
 
 void LoadMask(const string &strFilenamesMask, cv::Mat &imMask);
+
+#define NO_GT
 
 int main(int argc, char **argv)
 {
@@ -94,6 +97,7 @@ int main(int argc, char **argv)
     // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
     // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
     cv::Mat imRGB, imD, mTcw_gt;
+    double total_track_time = 0;
     for(int ni=0; ni<nImages; ni++)
     {
         cout << endl;
@@ -103,6 +107,13 @@ int main(int argc, char **argv)
         // Read imreadmage and depthmap from file
         imRGB = cv::imread(vstrFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
         imD   = cv::imread(vstrFilenamesDEP[ni],CV_LOAD_IMAGE_UNCHANGED);
+
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
+#endif
+
         cv::Mat imD_f, imD_r;
         // cv::resize(imD, imD_r, cv::Size(1242,375));
         imD.convertTo(imD_f, CV_32F);
@@ -132,10 +143,20 @@ int main(int argc, char **argv)
         // Pass the image to the SLAM system
         SLAM.TrackRGBD(imRGB,imD_f,imFlow,imSem,mTcw_gt,vObjPose_gt,tframe,imTraj,nImages);
 
+#ifdef COMPILEDWITHC11
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+#else
+        std::chrono::monotonic_clock::time_point t2 = std::chrono::monotonic_clock::now();
+#endif
+        double track_time = std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+        total_track_time += track_time;
     }
+
+    cout << "mean tracking time: " << total_track_time/nImages << endl;
 
     // // Save camera trajectory
     // SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
+    SLAM.SaveTrajectoryKITTI("CameraTrajectory.txt");
 
     return 0;
 }
@@ -164,7 +185,7 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
     fTimes.close();
 
     // +++ image, depth, semantic and moving object tracking mask +++
-    string strPrefixImage = strPathToSequence + "/image_0/";         // image  image_0
+    string strPrefixImage = strPathToSequence + "/image_2/";         // image  image_0
     string strPrefixDepth = strPathToSequence + "/depth/";           // depth_gt  depth
     string strPrefixSemantic = strPathToSequence + "/semantic/";     // semantic_gt  semantic
     string strPrefixFlow = strPathToSequence + "/flow/";             // flow_gt  flow
@@ -188,6 +209,7 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
 
 
     // +++ ground truth pose +++
+#ifndef NO_GT
     string strFilenamePose = strPathToSequence + "/pose_gt.txt"; //  pose_gt.txt  kevin_extrinsics.txt
     // vPoseGT.resize(nTimes);
     ifstream fPose;
@@ -214,9 +236,17 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
         }
     }
     fPose.close();
+#else
+    for(int i=0; i<nTimes; i++)
+    {
+        cv::Mat Pose_tmp = cv::Mat::eye(4,4,CV_32F);
+        vPoseGT.push_back(Pose_tmp);
+    }
+#endif
 
 
     // +++ ground truth object pose +++
+#ifndef NO_GT_OBJ
     string strFilenameObjPose = strPathToSequence + "/object_pose.txt";
     ifstream fObjPose;
     fObjPose.open(strFilenameObjPose.c_str());
@@ -240,6 +270,9 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
         }
     }
     fObjPose.close();
+#else
+
+#endif
 
 }
 
@@ -435,8 +468,8 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
     }
 
     // // Display the img_mask
-    // cv::imshow("Segmentation Mask", imgLabel);
-    // cv::waitKey(1);
+    cv::imshow("Segmentation Mask", imgLabel);
+    cv::waitKey(1);
 
     return;
 

@@ -177,12 +177,15 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     mImGray = imRGB;
 
     // preprocess depth  !!! important for kitti and oxford dataset
+    int bad_depth_points_number = 0;
     for (int i = 0; i < imD.rows; i++)
     {
         for (int j = 0; j < imD.cols; j++)
         {
-            if (imD.at<float>(i,j)<0)
-                imD.at<float>(i,j)=0;
+            if (imD.at<float>(i,j)<=0) {
+                imD.at<float>(i, j) = 0;
+                bad_depth_points_number++;
+            }
             else
             {
                 if (mTestData==OMD)
@@ -197,6 +200,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             }
         }
     }
+    std::cout << std::endl << "Bad depth points number: " << bad_depth_points_number << std::endl << std::endl;
 
     cv::Mat imDepth = imD;
 
@@ -1172,14 +1176,14 @@ void Tracking::Track()
         e_5 = clock();
         loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
         mpMap->fLBA_time.push_back(loc_ba_time);
-        // cout << "local optimization time: " << loc_ba_time << endl;
+        cout << "local optimization time: " << loc_ba_time << endl;
     }
 
     // =================================================================================================
     // ============== Full batch optimize on all the measurements (global optimization) ================
     // =================================================================================================
 
-    bGlobalBatch = true;
+    bGlobalBatch = false;
     if (f_id==StopFrame) // bFrame2Frame f_id>=2
     {
         // Metric Error BEFORE Optimization
